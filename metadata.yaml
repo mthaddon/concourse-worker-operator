@@ -1,0 +1,33 @@
+# Copyright 2021 Canonical Ltd.
+# See LICENSE file for licensing details.
+name: concourse-worker
+description: |
+  A Juju Charm deploying and operating the Concourse CI worker node.
+summary: |
+  Concourse is an open-source continuous thing-doer.
+
+containers:
+  concourse-worker:
+    resource: concourse-image
+    mounts:
+      - storage: workdir
+        location: /opt/concourse/worker
+
+resources:
+  concourse-image:
+    type: oci-image
+    description: OCI image for concourse (https://hub.docker.com/r/concourse/concourse)
+
+provides:
+  concourse-worker:
+    interface: concourse-worker
+
+requires:
+  db:
+    interface: pgsql
+    limit: 1
+
+storage:
+  workdir:
+    type: filesystem
+    description: Concourse working directory
