@@ -58,8 +58,13 @@ class ConcourseWorkerOperatorCharm(CharmBase):
         except ConnectionError:
             event.defer()
             return
-        self._stored.concourse_web_host = event.relation.data[event.app]["TSA_HOST"]
-        container.push("/concourse-keys/tsa_host_key.pub", event.relation.data[event.app]["CONCOURSE_TSA_HOST_KEY_PUB"])
+        tsa_host = event.relation.data[event.app].get("TSA_HOST")
+        tsa_host_key_pub = event.relation.data[event.app].get("CONCOURSE_TSA_HOST_KEY_PUB")
+        if not tsa_host or not tsa_host_key_pub:
+            event.defer()
+            return
+        self._stored.concourse_web_host = tsa_host
+        container.push("/concourse-keys/tsa_host_key.pub", tsa_host_key_pub, make_dirs=True)
 
     def _get_concourse_binary_path(self, container):
         with NamedTemporaryFile(delete=False) as temp:
@@ -126,6 +131,9 @@ class ConcourseWorkerOperatorCharm(CharmBase):
                 "The following relations are required: {}".format(", ".join(required_relations))
             )
             return
+        if not self._stored.concourse_web_host:
+            self.unit.status = BlockedStatus("Relation required with Concourse Web.")
+            return
         container = self.unit.get_container("concourse-worker")
         layer = self._concourse_layer()
         try:
@@ -160,9 +168,9 @@ class ConcourseWorkerOperatorCharm(CharmBase):
     def _env_config(self):
         return {
             "CONCOURSE_WORK_DIR": "/opt/concourse/worker",
-            "CONCOURSE_TSA_HOST": "{}:2222".format(self._stored.concourse_web_tsa_host,  # comma-separated list.
-            "CONCOURSE_TSA_PUBLIC_KEY": "/concourse-keys/tsa_host_key.pub",  # Get this from the relation.
-            "CONCOURSE_TSA_WORKER_PRIVATE_KEY": "/concourse-keys/worker_key",
+            "CONCOURSE_TSA_HOST": "{}:2222".format(self._stored.concourse_web_host),  # comma-separated list.
+            "CONCOURSE_TSA_PUBLIC_KEY": "/concourse-keys/tsa_host_key.pub",
+            "CONCOURSE_TSA_WORKER_PRIVATE_KEY": "/concourse-keys/worker_key",  # XXX: We need to generate this.
             # "CONCOURSE_POSTGRES_HOST": self._stored.db_host,
             # "CONCOURSE_POSTGRES_PORT": self._stored.db_port,
             # "CONCOURSE_POSTGRES_DATABASE": self._stored.db_name,
