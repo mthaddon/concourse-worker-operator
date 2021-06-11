@@ -10,6 +10,8 @@ containers:
   concourse-worker:
     resource: concourse-image
     mounts:
+      - storage: concourse-keys
+        location: /concourse-keys
       - storage: workdir
         location: /opt/concourse/worker
 
@@ -28,6 +30,9 @@ requires:
     limit: 1
 
 storage:
+  concourse-keys:
+    type: filesystem
+    location: /concourse-keys
   workdir:
     type: filesystem
     description: Concourse working directory

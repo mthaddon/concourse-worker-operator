@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 # Copyright 2021 Canonincal Ltd.
 # See LICENSE file for licensing details.
-#
-# Learn more at: https://juju.is/docs/sdk
-
-"""Charm the service.
-
-Refer to the following post for a quick-start guide that will help you
-develop a new k8s charm using the Operator Framework:
-
-    https://discourse.charmhub.io/t/4208
-"""
 
 import logging
+import os
+import subprocess
+
+from tempfile import NamedTemporaryFile
+
 import ops.lib
 
 from ops.charm import CharmBase
@@ -53,6 +48,12 @@ class ConcourseWorkerOperatorCharm(CharmBase):
         self.framework.observe(self.on.concourse_worker_relation_changed, self._on_concourse_worker_relation_changed)
 
     def _on_concourse_worker_relation_changed(self, event):
+        if not os.path.exists("/concourse-keys/worker_key.pub"):
+            event.defer()
+            return
+        # Publish our public key on the relation.
+        with open("/concourse-keys/worker_key.pub", "r") as worker_key_pub:
+            event.relation.data[self.unit]["WORKER_KEY_PUB"] = worker_key_pub.read()
         try:
             container = self.unit.get_container("concourse-worker")
         except ConnectionError:
@@ -66,7 +67,8 @@ class ConcourseWorkerOperatorCharm(CharmBase):
         self._stored.concourse_web_host = tsa_host
         container.push("/concourse-keys/tsa_host_key.pub", tsa_host_key_pub, make_dirs=True)
 
-    def _get_concourse_binary_path(self, container):
+    def _get_concourse_binary_path(self):
+        container = self.unit.get_container("concourse-worker")
         with NamedTemporaryFile(delete=False) as temp:
             temp.write(container.pull("/usr/local/concourse/bin/concourse", encoding=None).read())
             temp.flush()
@@ -122,6 +124,15 @@ class ConcourseWorkerOperatorCharm(CharmBase):
         self._stored.db_ro_uris = [c.uri for c in event.standbys]
 
     def _on_config_changed(self, event):
+        # Let's check with have the worker key already. If not, let's create it.
+        if not os.path.exists("/concourse-keys/worker_key"):
+            try:
+                concourse_binary_path = self._get_concourse_binary_path()
+            except ConnectionError:
+                event.defer()
+                return
+            subprocess.run([concourse_binary_path, "generate-key", "-t", "ssh", "-f", "/concourse-keys/worker_key"])
+
         required_relations = []
         # XXX: Is this needed at all?
         # if not self._stored.db_conn_str:
@@ -134,6 +145,13 @@ class ConcourseWorkerOperatorCharm(CharmBase):
         if not self._stored.concourse_web_host:
             self.unit.status = BlockedStatus("Relation required with Concourse Web.")
             return
+
+        # Check we have other needed file from relation.
+        if not os.path.exists(self._env_config["CONCOURSE_TSA_PUBLIC_KEY"]) or not self._stored.concourse_web_host:
+            self.unit.BlockedStatus("Waiting for CONCOURSE_TSA_PUBLIC_KEY or CONCOURSE_TSA_HOST")
+            event.defer()
+            return
+
         container = self.unit.get_container("concourse-worker")
         layer = self._concourse_layer()
         try:
