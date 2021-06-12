@@ -24,11 +24,6 @@ provides:
   concourse-worker:
     interface: concourse-worker
 
-requires:
-  db:
-    interface: pgsql
-    limit: 1
-
 storage:
   concourse-keys:
     type: filesystem

@@ -7,8 +7,8 @@ PostgreSQL node. This charm deploys the worker node.
 
 ## Usage
 
-This charm requires a relation to PostgreSQL and to a Concourse web node.
-To deploy in a juju k8s model:
+This charm requires a relation to a Concourse web node. To deploy in a juju
+k8s model:
 
     juju deploy concourse-web
     juju deploy concourse-worker
@@ -17,7 +17,6 @@ To deploy in a juju k8s model:
     # Add our relations
     juju relate concourse-web concourse-worker
     juju relate postgresql-k8s:db concourse-web
-    juju relate postgresql-k8s:db concourse-worker
     juju relate nginx-ingress-integrator concourse-web
 
 You can now visit `http://concourse-web` in a browser, assuming
