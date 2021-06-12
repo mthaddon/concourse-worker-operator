@@ -1,4 +1,4 @@
-# Concourse Web Operator
+# Concourse Worker Operator
 
 ## Description
 
