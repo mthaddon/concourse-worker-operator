@@ -53,6 +53,9 @@ class ConcourseWorkerOperatorCharm(CharmBase):
             logger.info("Unable to push to the container, deferring.")
             event.defer()
             return
+        # If we get this far, retrigger a config-changed, where we'll check if we
+        # have all the info we need and try to run concourse-worker if we do.
+        self.on.config_changed.emit()
 
     def _get_concourse_binary_path(self):
         container = self.unit.get_container("concourse-worker")
