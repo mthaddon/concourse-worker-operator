@@ -121,10 +121,11 @@ class ConcourseWorkerOperatorCharm(CharmBase):
     @property
     def _env_config(self):
         return {
-            "CONCOURSE_WORK_DIR": "/opt/concourse/worker",
+            "CONCOURSE_BAGGAGECLAIM_DRIVER": "overlay",
             "CONCOURSE_TSA_HOST": "{}:2222".format(self._stored.concourse_web_host),  # comma-separated list.
             "CONCOURSE_TSA_PUBLIC_KEY": "/concourse-keys/tsa_host_key.pub",
             "CONCOURSE_TSA_WORKER_PRIVATE_KEY": "/concourse-keys/worker_key",
+            "CONCOURSE_WORK_DIR": "/opt/concourse/worker",
         }
 
 
